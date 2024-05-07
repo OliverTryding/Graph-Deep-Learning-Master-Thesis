@@ -6,11 +6,11 @@ import dhg
 from dhg import Graph
 from dhg import Hypergraph
 
-from ActionNetwork import action_network
-from EnvironmentNetwork import environment_network
+from models.ActionNetwork import action_network
+from models.EnvironmentNetwork import environment_network
 
 class HCoGNN_node_classifier(nn.Module):
-    def __init__(self, num_features: int, num_classes: int, G: Graph, action_aggr: str = 'mean', environment_aggr: str = 'mean', num_iterations: int = 1):
+    def __init__(self, num_features: int, num_classes: int, G: Graph, action_aggr: str = 'mean', environment_aggr: str = 'mean', num_iterations: int = 1, dropout: float = 0.3):
         super().__init__()
         self.classifier = nn.Linear(num_features, num_classes)
         self.G = G

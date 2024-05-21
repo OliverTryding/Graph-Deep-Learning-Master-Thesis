@@ -13,10 +13,12 @@ class HCoGNN_node_classifier(nn.Module):
     def __init__(self, num_features: int, num_classes: int, G: Graph, action_aggr: str = 'mean', environment_aggr: str = 'mean', num_iterations: int = 1, dropout: float = 0.3):
         super().__init__()
         self.classifier = nn.Linear(num_features, num_classes)
+        self.dropout = nn.Dropout(dropout)
         self.G = G
         self.num_iterations = num_iterations
-        self.action_net = action_network(num_features, G, action_aggr)
-        self.environment_net = environment_network(num_features, G, environment_aggr)
+        self.action_net = action_network(num_features, G, action_aggr, dropout)
+        self.environment_net = environment_network(num_features, G, environment_aggr, dropout)
+        self.activation = nn.GELU()
         self.action_history = []
 
     def forward(self, x, edge_weight=(None,None)):
@@ -36,6 +38,8 @@ class HCoGNN_node_classifier(nn.Module):
                 self.action_history.append(torch.argmax(action, dim=1))
         # Pass the output through the classifier
         out = self.classifier(x)
+        # out = self.dropout(out)
+        # out = self.activation(out)
         # Apply softmax to get probabilities
         out = F.softmax(out, dim=1)
         return out

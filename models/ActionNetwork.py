@@ -19,7 +19,7 @@ class action_network(torch.nn.Module):
     def forward(self, x, edge_weight=(None,None)):
         # Compute the messages
         m_ji = self.lin_message(x)
-        m_ij = self.dropout(m_ji)
+        m_ji = self.dropout(m_ji)
         m_ji = torch.nn.GELU()(m_ji)
         # Aggregate the messages
         m_i = self.G.v2v(m_ji, self.aggregation, v2e_weight=edge_weight[0], e2v_weight=edge_weight[1])

@@ -23,7 +23,7 @@ class environment_network(nn.Module):
         
         # Compute the messages
         m_ji = self.lin_message(x)
-        m_ij = self.dropout(m_ji)
+        m_ji = self.dropout(m_ji)
         m_ji = torch.nn.GELU()(m_ji)
         m_ji = m_ji * send.view(-1, 1) # mask the messages
 

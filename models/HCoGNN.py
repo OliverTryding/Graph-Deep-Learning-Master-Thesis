@@ -38,8 +38,8 @@ class HCoGNN_node_classifier(nn.Module):
                 self.action_history.append(torch.argmax(action, dim=1))
         # Pass the output through the classifier
         out = self.classifier(x)
-        # out = self.dropout(out)
-        # out = self.activation(out)
+        out = self.dropout(out)
+        out = self.activation(out)
         # Apply softmax to get probabilities
         out = F.softmax(out, dim=1)
         return out

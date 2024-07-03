@@ -10,7 +10,7 @@ from models.ActionNetwork import action_network
 from models.EnvironmentNetwork import environment_network
 
 class HCoGNN_node_classifier(nn.Module):
-    def __init__(self, num_features: int, num_classes: int, num_iterations: int = 1, activation = nn.ReLU(), action_net: action_network = None, environment_net: environment_network = None, classifier_layers: list = [], dropout: float = 0.5):
+    def __init__(self, num_features: int, num_classes: int, num_iterations: int = 1, activation = nn.ReLU(), action_net: action_network = None, environment_net: environment_network = None, classifier_layers: list = [], tau: float = 0.1, dropout: float = 0.5):
         super().__init__()
         self.classifier = nn.ModuleList()
         for dim in classifier_layers:
@@ -24,6 +24,7 @@ class HCoGNN_node_classifier(nn.Module):
         self.activation = activation
         self.action_net = action_net
         self.environment_net = environment_net
+        self.tau = tau
         self.action_history = []
 
     def forward(self, x, G: Hypergraph):
@@ -38,7 +39,7 @@ class HCoGNN_node_classifier(nn.Module):
             else:
                 p_i = self.action_net(x, G)
                 # Sample an action using the straight-through Gumbel-softmax estimator
-                action = F.gumbel_softmax(p_i, hard=True)
+                action = F.gumbel_softmax(p_i, self.tau, hard=True)
                 if self.eval():
                     self.action_history.append(torch.argmax(action, dim=1))
 

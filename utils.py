@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+import copy
 from sklearn.metrics import confusion_matrix
 
 import dhg
@@ -133,7 +134,7 @@ class EarlyStopping:
         if self.mode == 'min':
             if score < self.best_score:
                 self.best_score = score
-                self.best_model = model.state_dict()
+                self.best_model = copy.deepcopy(model)
             if score < self.best_score + self.delta:
                 self.counter = 0
             else:
@@ -141,7 +142,7 @@ class EarlyStopping:
         else:
             if score > self.best_score:
                 self.best_score = score
-                self.best_model = model.state_dict()
+                self.best_model = copy.deepcopy(model)
             if score > self.best_score + self.delta:
                 self.counter = 0
             else:

@@ -43,9 +43,6 @@ def load_data(dataset_name: str, train_percentage: float = 0.1):
     labels = dataset['labels']
     G = Hypergraph(dataset['num_vertices'], dataset['edge_list'])
 
-    # Print the data object
-    print("Data object:", dataset)
-
     # Print the number of classes
     num_classes = dataset['num_classes']
     print("Number of classes:", num_classes)

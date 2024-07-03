@@ -9,6 +9,7 @@ from dhg.data import Citeseer
 from dhg.data import Pubmed
 from dhg.data import CoauthorshipCora
 from dhg.data import CocitationCora
+from dhg.data import CocitationCiteseer
 from dhg.data import YelpRestaurant
 from dhg.data import Yelp3k
 from dhg.data import IMDB4k
@@ -26,6 +27,8 @@ def load_dataset(dataset_name: str):
         return CoauthorshipCora()
     elif dataset_name == 'cocitation_cora':
         return CocitationCora()
+    elif dataset_name == 'cocitation_citeseer':
+        return CocitationCiteseer()
     elif dataset_name == 'yelp_restaurant':
         return YelpRestaurant()
     elif dataset_name == 'yelp3k':
@@ -39,7 +42,11 @@ def load_dataset(dataset_name: str):
     
 def load_data(dataset_name: str, train_percentage: float = 0.1):
     dataset = load_dataset(dataset_name)
-    X = dataset['features']
+    try:
+        X = dataset['features']
+        X = dd.norm_ft(X)
+    except:
+        X = torch.ones(dataset['num_vertices'], 1)
     labels = dataset['labels']
     G = Hypergraph(dataset['num_vertices'], dataset['edge_list'])
 
@@ -52,7 +59,10 @@ def load_data(dataset_name: str, train_percentage: float = 0.1):
     print("Number of nodes:", num_nodes)
 
     # Print the number of node features
-    num_node_features = dataset['dim_features']
+    try:
+        num_node_features = dataset['dim_features']
+    except:
+        num_node_features = X.shape[1]
     print("Number of node features:", num_node_features)
 
     # Print number of edges
@@ -64,7 +74,7 @@ def load_data(dataset_name: str, train_percentage: float = 0.1):
     print("Maximum edge size:", max_edge_size)
 
     # Print the node features
-    print("Node features:", dataset['features'].shape)
+    print("Node features:", X.shape)
 
     # Print the labels
     print("Labels:", dataset['labels'].shape)
@@ -88,5 +98,8 @@ def load_data(dataset_name: str, train_percentage: float = 0.1):
     train_mask[min_train_mask] = True
     test_mask[min_train_mask] = False
     val_mask[min_train_mask] = False
+
+    # Print the train mask
+    print("Train mask:", train_mask.shape)
 
     return X, labels, G, num_classes, num_nodes, num_node_features, num_edges, max_edge_size, train_mask, val_mask, test_mask

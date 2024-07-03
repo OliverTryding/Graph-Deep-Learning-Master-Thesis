@@ -10,16 +10,20 @@ from models.ActionNetwork import action_network
 from models.EnvironmentNetwork import environment_network
 
 class HCoGNN_node_classifier(nn.Module):
-    def __init__(self, num_features: int, num_classes: int, num_iterations: int = 1, activation = nn.ReLU(), action_net: action_network = None, environment_net: environment_network = None, classifier_layers: list = [], tau: float = 0.1, dropout: float = 0.5):
+    def __init__(self, num_features: int, num_classes: int, num_iterations: int = 1, activation = nn.ReLU(), 
+                 action_net: action_network = None, environment_net: environment_network = None, classifier_layers: list = [], 
+                 tau: float = 0.1, dropout: float = 0.5, layerNorm: bool = True):
         super().__init__()
         self.classifier = nn.ModuleList()
-        for dim in classifier_layers:
-            assert isinstance(dim, int), "All elements of classifier_layers should be integers"
-            self.classifier.append(nn.Linear(num_features, dim))
+        dim = num_features
+        for hidden_dim in classifier_layers:
+            assert isinstance(hidden_dim, int), "All elements of classifier_layers should be integers"
+            self.classifier.append(nn.Linear(dim, hidden_dim))
             self.classifier.append(activation)
-            num_features = dim
-        self.classifier.append(nn.Linear(num_features, num_classes))
+            dim = hidden_dim
+        self.classifier.append(nn.Linear(dim, num_classes))
         self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(num_features) if layerNorm else nn.Identity()
         self.num_iterations = num_iterations
         self.activation = activation
         self.action_net = action_net
@@ -30,6 +34,9 @@ class HCoGNN_node_classifier(nn.Module):
     def forward(self, x, G: Hypergraph):
         # Pass the input through the MPNN for a number of iterations
         for i in range(self.num_iterations):
+            # Apply layer normalization
+            x = self.layer_norm(x)
+
             # Determine the actions
             if i == 0:
                 action = torch.zeros(x.shape[0], 4).to(x.device)

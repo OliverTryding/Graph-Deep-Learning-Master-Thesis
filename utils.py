@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
@@ -8,6 +9,18 @@ from sklearn.metrics import confusion_matrix
 import dhg
 from dhg import Graph
 from dhg import Hypergraph
+from dhg.random import set_seed
+
+def fix_seeds(seed):
+    """
+    Fix seeds for reproducibility the same way as the authors did
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    set_seed(seed)
 
 def random_walk_matrix(G):
     deg = G.deg_v

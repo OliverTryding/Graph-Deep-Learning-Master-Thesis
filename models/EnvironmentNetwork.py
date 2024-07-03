@@ -29,7 +29,7 @@ class environment_network(nn.Module):
 
         for _ in range(self.depth):
             x = self.update(x, G, send, receive)
-
+            x = self.dropout(x)
         return x
     
     def update(self, x, G: Hypergraph, send=None, receive=None):
@@ -38,7 +38,6 @@ class environment_network(nn.Module):
         m_ji = m_ji * send.view(-1, 1) # mask the messages
         for layer in self.layers:
             m_ji = layer(m_ji)
-        m_ji = self.dropout(m_ji)
         # Aggregate the messages
         m_i = G.v2v(m_ji, self.aggregation)
         m_i = m_i * receive.view(-1, 1) # mask the messages

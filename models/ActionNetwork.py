@@ -26,23 +26,24 @@ class action_network(torch.nn.Module):
     def forward(self, x, G: Hypergraph):
         if self.depth == 0:
             action = torch.zeros(x.shape[0], 4).to(x.device)
-            action[:, 0] = 1
+            action[:, 0] = 1000
             return action
-        for _ in range(self.depth):
-            x = self.update(x, G)
-        a_i = self.action_layer(x)
+        else:
+            for _ in range(self.depth):
+                x = self.update(x, G)
+                x = self.dropout(x)
+            a_i = self.action_layer(x)
 
-        # Compute the action probabilities
-        p_i = F.log_softmax(a_i, dim=1) # probabilities for action selection {S, L, B, I}
+            # Compute the action probabilities
+            p_i = F.log_softmax(a_i, dim=1) # probabilities for action selection {S, L, B, I}
 
-        return p_i
+            return p_i
     
     def update(self, x, G: Hypergraph):
         # Compute the messages
         m_ji = x
         for layer in self.layers:
             m_ji = layer(m_ji)
-        m_ji = self.dropout(m_ji)
 
         # Aggregate the messages
         m_i = G.v2v(m_ji, self.aggregation)

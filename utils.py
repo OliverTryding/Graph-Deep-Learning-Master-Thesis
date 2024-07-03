@@ -142,9 +142,7 @@ def visualize_results(model, X, G, labels, test_mask):
 
             # Plot the ratios as stackplot
             x_axis = np.array(range(model.num_iterations))
-            print(x_axis)
             y_axis = np.array(ratios).T
-            print(y_axis)
             ax[1].stackplot(x_axis, y_axis, labels=['Standard', 'Listen', 'Broadcast', 'Isolate'])
             ax[1].set_xticks(range(model.num_iterations))
             ax[1].set_xlim(0, model.num_iterations-1)

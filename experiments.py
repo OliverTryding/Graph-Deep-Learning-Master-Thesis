@@ -44,13 +44,13 @@ train_mask = train_mask.to(device)
 val_mask = val_mask.to(device)
 test_mask = test_mask.to(device)
 
-action_net = action_network(num_node_features, "mean", nn.GELU(), [], depth=0, dropout=0).to(device)
-environment_net = environment_network(num_node_features, "mean", nn.GELU(), [512], depth=1, dropout=0).to(device)
-model = HCoGNN_node_classifier(num_node_features, num_classes, 3, nn.GELU(), action_net, environment_net, [512], tau=0.01, dropout=0.5).to(device)
+action_net = action_network(num_node_features, "mean", nn.ReLU(), [32], depth=0, dropout=0.5).to(device)
+environment_net = environment_network(num_node_features, "mean", nn.ReLU(), [128], depth=1, dropout=0.5).to(device)
+model = HCoGNN_node_classifier(num_node_features, num_classes, 2, nn.ReLU(), action_net, environment_net, [64], tau=0.01, dropout=0.5, layerNorm=True).to(device)
 
 params = [{'params': model.classifier.parameters(), 'lr': 0.01, 'weight_decay': 1e-5}, 
-          {'params': model.action_net.parameters(), 'lr': 0.001, 'weight_decay': 1e-5}, 
-          {'params': model.environment_net.parameters(), 'lr': 0.001, 'weight_decay': 1e-5}]
+          {'params': model.action_net.parameters(), 'lr': 0.01, 'weight_decay': 1e-5}, 
+          {'params': model.environment_net.parameters(), 'lr': 0.01, 'weight_decay': 1e-5}]
 
 # Adam optimizer
 optimizer = torch.optim.Adam(params)
@@ -63,6 +63,8 @@ edge_weight = (None,None)
 
 # Run the training
 early_stopper = EarlyStopping(patience=100, mode='max', delta=-0.01)
+print('')
+print("Training...")
 for epoch in range(2000):
     loss = train(model, optimizer, X, G, labels, train_mask)
 

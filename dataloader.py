@@ -40,7 +40,7 @@ def load_dataset(dataset_name: str):
     else:
         raise ValueError(f"Dataset {dataset_name} not found.")
     
-def load_data(dataset_name: str, train_percentage: float = 0.1):
+def load_data(dataset_name: str, train_percentage: float = 0.1, verbose: bool = True):
     dataset = load_dataset(dataset_name)
     try:
         X = dataset['features']
@@ -52,32 +52,39 @@ def load_data(dataset_name: str, train_percentage: float = 0.1):
 
     # Print the number of classes
     num_classes = dataset['num_classes']
-    print("Number of classes:", num_classes)
+    if verbose:
+        print("Number of classes:", num_classes)
 
     # Print the number of nodes
     num_nodes = dataset['num_vertices']
-    print("Number of nodes:", num_nodes)
+    if verbose:
+        print("Number of nodes:", num_nodes)
 
     # Print the number of node features
     try:
         num_node_features = dataset['dim_features']
     except:
         num_node_features = X.shape[1]
-    print("Number of node features:", num_node_features)
+    if verbose:
+        print("Number of node features:", num_node_features)
 
     # Print number of edges
     num_edges = dataset['num_edges']
-    print("Number of edges:", num_edges)
+    if verbose:
+        print("Number of edges:", num_edges)
 
     # Print maximum edge size
     max_edge_size = max([len(edge) for edge in dataset['edge_list']])
-    print("Maximum edge size:", max_edge_size)
+    if verbose:
+        print("Maximum edge size:", max_edge_size)
 
     # Print the node features
-    print("Node features:", X.shape)
+    if verbose:
+        print("Node features:", X.shape)
 
     # Print the labels
-    print("Labels:", dataset['labels'].shape)
+    if verbose:
+        print("Labels:", dataset['labels'].shape)
 
     # Get the minimum train masks
     min_train_mask = dataset['train_mask']
@@ -100,6 +107,7 @@ def load_data(dataset_name: str, train_percentage: float = 0.1):
     val_mask[min_train_mask] = False
 
     # Print the train mask
-    print("Train mask:", train_mask.shape)
+    if verbose:
+        print("Train mask:", train_mask.shape)
 
     return X, labels, G, num_classes, num_nodes, num_node_features, num_edges, max_edge_size, train_mask, val_mask, test_mask

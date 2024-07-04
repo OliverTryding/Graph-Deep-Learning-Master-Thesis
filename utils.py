@@ -42,7 +42,7 @@ def closure(model, optimizer, X, G, labels, train_mask):
     bfgs_loss = loss.item()
     return loss
 
-# Training loop
+# Training function
 def train(model, optimizer, X, G, labels, train_mask):
     model.train()
     if optimizer.__class__.__name__ == 'LBFGS':

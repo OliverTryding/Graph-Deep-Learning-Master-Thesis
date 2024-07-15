@@ -14,6 +14,7 @@ from dhg.data import YelpRestaurant
 from dhg.data import Yelp3k
 from dhg.data import IMDB4k
 from dhg.data import Cooking200
+from dhg.data import WalmartTrips
 import dhg.datapipe as dd
 
 def load_dataset(dataset_name: str):
@@ -37,6 +38,8 @@ def load_dataset(dataset_name: str):
         return IMDB4k()
     elif dataset_name == 'cooking200':
         return Cooking200()
+    elif dataset_name == 'WalmartTrips':
+        return WalmartTrips()
     else:
         raise ValueError(f"Dataset {dataset_name} not found.")
     
@@ -86,8 +89,12 @@ def load_data(dataset_name: str, train_percentage: float = 0.1, verbose: bool = 
     if verbose:
         print("Labels:", dataset['labels'].shape)
 
-    # Get the minimum train masks
-    min_train_mask = dataset['train_mask']
+    try:
+        # Get the minimum train masks
+        min_train_mask = dataset['train_mask']
+    except:
+        # If the minimum train mask is not provided, set it to all zeros
+        min_train_mask = torch.zeros(num_nodes, dtype=torch.bool)
 
     # Compute new masks
     num_train = int(train_percentage * num_nodes)
@@ -108,6 +115,6 @@ def load_data(dataset_name: str, train_percentage: float = 0.1, verbose: bool = 
 
     # Print the train mask
     if verbose:
-        print("Train mask:", train_mask.shape)
+        print("Train mask length:", train_mask.sum())
 
     return X, labels, G, num_classes, num_nodes, num_node_features, num_edges, max_edge_size, train_mask, val_mask, test_mask

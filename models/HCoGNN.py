@@ -8,12 +8,15 @@ from dhg import Hypergraph
 
 from models.ActionNetwork import action_network
 from models.EnvironmentNetwork import environment_network
+from models.Encoders import PosEncoder
 
 class HCoGNN_node_classifier(nn.Module):
     def __init__(self, num_features: int, num_classes: int, num_iterations: int = 1, activation = nn.ReLU(), 
                  action_net: action_network = None, environment_net: environment_network = None, classifier_layers: list = [], 
-                 tau: float = 0.1, dropout: float = 0.5, layerNorm: bool = True):
+                 tau: float = 0.1, dropout: float = 0.5, layerNorm: bool = True, pos_enc: bool = False, k: int = 10):
         super().__init__()
+        self.pos_enc = pos_enc
+        self.encoder = PosEncoder(k=k)
         self.classifier = nn.ModuleList()
         dim = num_features
         for hidden_dim in classifier_layers:
@@ -32,6 +35,9 @@ class HCoGNN_node_classifier(nn.Module):
         self.action_history = []
 
     def forward(self, x, G: Hypergraph):
+        if self.pos_enc:
+            x = self.encoder(x, G)
+
         # Pass the input through the MPNN for a number of iterations
         for i in range(self.num_iterations):
             # Apply layer normalization

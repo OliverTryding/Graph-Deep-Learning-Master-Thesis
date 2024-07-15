@@ -153,6 +153,75 @@ def visualize_results(model, X, G, labels, test_mask):
 
         plt.show()
 
+def visualize_results_full(model, X, G, labels, test_mask, train_mask):
+    model.eval()
+    with torch.no_grad():
+        logits = model(X, G)
+        test_logits = logits[test_mask] # Log probabilities of test nodes
+        test_labels = labels[test_mask] # True labels of test nodes
+        pred = test_logits.max(1)[1] # Predicted labels
+
+        cm = confusion_matrix(test_labels.cpu(), pred.cpu())
+
+        # Normalize confusion matrix
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+        fig, ax = plt.subplots(1, 2, figsize=(20,10))
+
+        # Plot confusion matrix
+        im = ax[0].matshow(cm, cmap=plt.cm.Blues)
+        plt.colorbar(im, ax=ax[0])
+        ax[0].set_title('Confusion matrix')
+        ax[0].set_ylabel('True label')
+        ax[0].set_xlabel('Predicted label')
+
+        # Plot action history
+        if hasattr(model, 'action_history'):
+            ratios = []
+            for layer in range(model.num_iterations):
+                actions = model.action_history[layer].cpu()
+
+                # Convert list to numpy array
+                actions_array = np.array(actions)
+
+                # Compute the ratio
+                ratio = np.bincount(actions_array, minlength=4) / len(actions_array)
+                ratio = np.round(ratio, 4)
+                ratios.append(ratio)
+
+            # Plot the ratios as stackplot
+            x_axis = np.array(range(model.num_iterations))
+            y_axis = np.array(ratios).T
+            ax[1].stackplot(x_axis, y_axis, labels=['Standard', 'Listen', 'Broadcast', 'Isolate'])
+            ax[1].set_xticks(range(model.num_iterations))
+            ax[1].set_xlim(0, model.num_iterations-1)
+            ax[1].set_title('Action history')
+            ax[1].set_ylabel('Ratio')
+            ax[1].set_xlabel('Iteration')
+            ax[1].legend(loc='upper right')
+
+        v_index = np.arange(G.num_v)
+
+        # Plot the training and test nodes
+        colors = ['blue', 'pink', 'orange']
+        vertex_colors = [colors[c] for c in labels]
+        G.draw(v_label=v_index, v_color=vertex_colors, e_color='black')
+
+        # Plot the accuracy
+        accuracy_mask = [1 if p == t else 0 for p, t in zip(pred, test_labels)] # 1 if correct, 0 if incorrect for each test node
+        accuracy_colors = ['blue' if t else 'gray' for _, t in enumerate(test_mask)] # blue if test node, gray if not
+        j = 0
+        for i, c in enumerate(accuracy_colors):
+            if c == 'gray':
+                accuracy_colors[i] = 'gray'
+            else:
+                accuracy_colors[i] = 'red' if accuracy_mask[j] == 0 else 'green'
+                j += 1
+
+        G.draw(v_label=v_index, v_color=accuracy_colors, e_color='black')
+
+        plt.show()
+
 class EarlyStopping:
     def __init__(self, patience=5, mode='min', delta=0.0):
         self.patience = patience

@@ -42,6 +42,32 @@ def closure(model, optimizer, X, G, labels, train_mask):
     bfgs_loss = loss.item()
     return loss
 
+# Get train mask from edges
+def get_edges_train_mask(G, train_percentage):
+    # Get the edges
+    edges = G.e[0]
+    num_edges = len(edges)
+
+    # Get train mask
+    train_mask = torch.zeros(G.num_v, dtype=torch.bool)
+
+    # Shuffle the edges
+    permutation = torch.randperm(num_edges)
+    edges = [edges[i] for i in permutation]
+
+    # Get the number of training edges
+    num_train_edges = int(train_percentage * num_edges)
+
+    # Get the training edges
+    train_edges = edges[:num_train_edges]
+
+    # Get the training mask
+    for e in train_edges:
+        for v in e:
+            train_mask[int(v)] = True
+
+    return train_mask
+
 # Training function
 def train(model, optimizer, X, G, labels, train_mask):
     model.train()

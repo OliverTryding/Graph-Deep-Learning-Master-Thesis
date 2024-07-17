@@ -36,6 +36,8 @@ class HCoGNN_node_classifier(nn.Module):
 
     def forward(self, x, G: Hypergraph):
         if self.pos_enc:
+            temp_features = torch.zeros(x.shape[0], self.encoder.k).to(x.device)
+            x = torch.cat((x, temp_features), dim=1)
             x = self.encoder(x, G)
 
         # Pass the input through the MPNN for a number of iterations

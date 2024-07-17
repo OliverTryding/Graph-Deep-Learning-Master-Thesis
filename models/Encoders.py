@@ -53,5 +53,6 @@ class PosEncoder():
             Call method for the PosEncoder class
         """
         eigenvecs = torch.tensor(laplacian_encoder(G, self.k), dtype=torch.float32).to(x.device)
-        return torch.cat((x, eigenvecs), dim=1)
+        x[:, -self.k:] = eigenvecs
+        return x
     

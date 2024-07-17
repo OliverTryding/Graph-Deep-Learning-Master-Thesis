@@ -223,7 +223,7 @@ def visualize_results_full(model, X, G, labels, test_mask, train_mask):
         plt.show()
 
 class EarlyStopping:
-    def __init__(self, patience=5, mode='min', delta=0.0):
+    def __init__(self, patience=5, mode='min', delta=0.0, break_training=False):
         self.patience = patience
         self.mode = mode
         self.delta = delta
@@ -231,6 +231,7 @@ class EarlyStopping:
         self.best_score = None
         self.stop = False
         self.best_model = None
+        self.break_training = break_training
 
         if self.mode == 'min':
             self.best_score = np.Inf

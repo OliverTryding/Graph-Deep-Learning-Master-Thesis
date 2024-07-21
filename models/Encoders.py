@@ -42,7 +42,7 @@ class PosEncoder():
         An Object for positional encoders
     """
 
-    def __init__(self, k: int = 10):
+    def __init__(self, k: int = None):
         """
             Constructor for the PosEncoder class
         """
@@ -52,7 +52,14 @@ class PosEncoder():
         """
             Call method for the PosEncoder class
         """
-        eigenvecs = torch.tensor(laplacian_encoder(G, self.k), dtype=torch.float32).to(x.device)
-        x[:, -self.k:] = eigenvecs
-        return x
+        dim = x.shape[1]
+        if self.k is not None:
+            eigenvecs = torch.tensor(laplacian_encoder(G, self.k), dtype=torch.float32).to(x.device)
+        else:
+            eigenvecs = torch.tensor(laplacian_encoder(G, dim-1), dtype=torch.float32).to(x.device)
+        if self.k is not None:
+            eigenvecs = eigenvecs[:, :self.k]
+            return torch.cat([x, eigenvecs], dim=1)
+        else:
+            return torch.cat([x, eigenvecs], dim=1)
     

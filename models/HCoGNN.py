@@ -11,9 +11,14 @@ from models.EnvironmentNetwork import environment_network
 
 class HCoGNN_node_classifier(nn.Module):
     def __init__(self, num_features: int, num_classes: int, num_iterations: int = 1, activation = nn.ReLU(), 
-                 action_net: action_network = None, environment_net: environment_network = None, classifier_layers: list = [], 
-                 tau: float = 0.1, dropout: float = 0.5, layerNorm: bool = True):
+                 action_net_receive: action_network = None, action_net_send: action_network = None, environment_net: environment_network = None, 
+                 classifier_layers: list = [], tau: float = 0.1, dropout: float = 0.5, layerNorm: bool = True, skip_connection: bool = False):
         super().__init__()
+
+        self.layer_norm = nn.LayerNorm(num_features) if layerNorm else nn.Identity()
+        self.skip_connection = skip_connection
+        self.skip_connections = []
+
         self.classifier = nn.ModuleList()
         dim = num_features
         for hidden_dim in classifier_layers:
@@ -22,11 +27,12 @@ class HCoGNN_node_classifier(nn.Module):
             self.classifier.append(activation)
             dim = hidden_dim
         self.classifier.append(nn.Linear(dim, num_classes))
+
         self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(num_features) if layerNorm else nn.Identity()
         self.num_iterations = num_iterations
         self.activation = activation
-        self.action_net = action_net
+        self.action_net_send = action_net_send
+        self.action_net_receive = action_net_receive
         self.environment_net = environment_net
         self.tau = tau
         self.action_history = []
@@ -39,16 +45,17 @@ class HCoGNN_node_classifier(nn.Module):
 
             # Determine the actions
             if i == 0:
-                action = torch.zeros(x.shape[0], 4).to(x.device)
-                action[:, 0] = 1
-                if self.eval():
-                    self.action_history.append(torch.argmax(action, dim=1))
+                action = torch.ones(x.shape[0], 2).to(x.device)
             else:
-                p_i = self.action_net(x, G)
+                p_i_send = self.action_net_send(x, G)
+                p_i_receive = self.action_net_receive(x, G)
                 # Sample an action using the straight-through Gumbel-softmax estimator
-                action = F.gumbel_softmax(p_i, self.tau, hard=True)
-                if self.eval():
-                    self.action_history.append(torch.argmax(action, dim=1))
+                send_action = F.gumbel_softmax(p_i_send, self.tau, hard=True)[:,0]
+                receive_action = F.gumbel_softmax(p_i_receive, self.tau, hard=True)[:,0]
+                action = torch.stack([receive_action, send_action], dim=1)
+
+            if self.eval():
+                self.action_history.append((3 - action[:, 0] * 2 - action[:, 1]).to(torch.int8))
 
             # Update the node features
             x = self.environment_net(x, action, G)

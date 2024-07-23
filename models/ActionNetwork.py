@@ -19,13 +19,13 @@ class action_network(torch.nn.Module):
             self.layers.append(nn.Linear(layer_dims[i], layer_dims[i+1]))
             self.layers.append(activation)
         self.lin_update = nn.Linear(num_features, num_features, bias=True)
-        self.action_layer = nn.Linear(num_features, 4)
+        self.action_layer = nn.Linear(num_features, 2)
         self.dropout = nn.Dropout(dropout)
         self.aggregation = aggregation
 
     def forward(self, x, G: Hypergraph):
         if self.depth == 0:
-            action = torch.zeros(x.shape[0], 4).to(x.device)
+            action = torch.zeros(x.shape[0], 2).to(x.device)
             action[:, 0] = 1000
             return action
         else:
@@ -35,9 +35,9 @@ class action_network(torch.nn.Module):
             a_i = self.action_layer(x)
 
             # Compute the action probabilities
-            p_i = F.log_softmax(a_i, dim=1) # probabilities for action selection {S, L, B, I}
+            # p_i = F.log_softmax(a_i, dim=1) # probabilities for action selection {S, L, B, I}
 
-            return p_i
+            return a_i
     
     def update(self, x, G: Hypergraph):
         # Compute the messages

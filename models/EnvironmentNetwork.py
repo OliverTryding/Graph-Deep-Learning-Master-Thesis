@@ -23,9 +23,9 @@ class environment_network(nn.Module):
 
     def forward(self, x, action, G: Hypergraph):
         # Unless the action is S or B, the sent message is zero
-        send = action[:, 0] + action[:, 2]
+        send = action[:, 1]
         # Unless the action is S or L, the received message is zero
-        receive = action[:, 0] + action[:, 1]
+        receive = action[:, 0]
 
         for _ in range(self.depth):
             x = self.update(x, G, send, receive)

@@ -246,6 +246,14 @@ def visualize_results_full(model, X, G, labels, test_mask, train_mask):
 
         G.draw(v_label=v_index, v_color=accuracy_colors, e_color='black')
 
+        # Plot node actions
+        if hasattr(model, 'action_history'):
+            for layer in range(model.num_iterations):
+                actions = model.action_history[layer].cpu()
+                colors = ['blue', 'pink', 'orange', 'gray'] # Standard, Listen, Broadcast, Isolate
+                vertex_colors = [colors[a] for a in actions]
+                G.draw(v_label=v_index, v_color=vertex_colors, e_color='black')
+
         plt.show()
 
 class EarlyStopping:

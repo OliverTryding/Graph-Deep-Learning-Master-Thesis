@@ -52,11 +52,11 @@ class PosEncoder():
         """
             Call method for the PosEncoder class
         """
-        dim = x.shape[1]
         if self.k is not None:
             eigenvecs = torch.tensor(laplacian_encoder(G, self.k), dtype=torch.float32).to(x.device)
         else:
-            eigenvecs = torch.tensor(laplacian_encoder(G, dim-1), dtype=torch.float32).to(x.device)
+            num_nodes = G.num_v
+            eigenvecs = torch.tensor(laplacian_encoder(G, num_nodes-1), dtype=torch.float32).to(x.device)
         if self.k is not None:
             eigenvecs = eigenvecs[:, :self.k]
             return torch.cat([x, eigenvecs], dim=1)

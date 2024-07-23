@@ -93,11 +93,13 @@ def main(dataset='cocitation_cora',
     val_mask = val_mask.to(device)
     test_mask = test_mask.to(device)
 
+    # Add positional encoding
     if pos_enc:
         Encoder = PosEncoder()
         X = Encoder(X, G)
-
     num_encoded_features = X.shape[1]
+
+    # Define the model
     action_net = action_network(num_encoded_features, "mean", activation_fun, action_net_hidden, depth=action_net_depth, dropout=do_act).to(device)
     environment_net = environment_network(num_encoded_features, "mean", activation_fun, environment_net_hidden, depth=environment_net_depth, dropout=do_env).to(device)
     model = HCoGNN_node_classifier(num_encoded_features, num_classes, num_layers, activation_fun, action_net, environment_net, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm).to(device)
@@ -116,7 +118,7 @@ def main(dataset='cocitation_cora',
     edge_weight = (None,None)
 
     # Run the training
-    early_stopper = EarlyStopping(patience=100, mode='max', delta=-0.01, break_training=True)
+    early_stopper = EarlyStopping(patience=200, mode='max', delta=-0.01, break_training=False)
     print('')
     print("Training...")
     for epoch in range(2000):
@@ -126,6 +128,8 @@ def main(dataset='cocitation_cora',
         if early_stopper(model, val_accuracy):
             # print("Early stopping")
             model = early_stopper.best_model
+            if early_stopper.break_training:
+                break
 
         if epoch % 100 == 0:
             train_accuracy, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
@@ -176,20 +180,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(dataset='cora',
+    main(dataset='coauthorship_cora',
          model='HCoGNN',
-         train_percentage=0.9,
+         train_percentage=0.5,
          activation_fun=nn.ReLU(),
          action_net_depth=0,
          environment_net_depth=1,
          action_net_hidden=[],
-         environment_net_hidden=[256],
-         hidden=[128],
-         num_layers=1,
+         environment_net_hidden=[512],
+         hidden=[256],
+         num_layers=3,
          tau=0.01,
          do_act=0,
-         do_env=0.2,
-         dropout=0.3,
+         do_env=0,
+         dropout=0.5,
          layerNorm=True,
          pos_enc=True,
          classifier_lr=0.01,

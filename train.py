@@ -120,14 +120,14 @@ def main(dataset='cocitation_cora',
     edge_weight = (None,None)
 
     # Run the training
-    early_stopper = EarlyStopping(patience=200, mode='max', delta=0.0, break_training=True)
+    early_stopper = EarlyStopping(patience=200, mode='min', delta=0.0, break_training=True)
     print('')
     print("Training...")
     for epoch in range(2000):
         loss = train(model, optimizer, X, G, labels, train_mask)
 
-        _, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
-        if early_stopper(model, val_accuracy):
+        #_, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
+        if early_stopper(model, loss):
             print(f"Best validation accuracy: {early_stopper.best_score:.4f}")
             print(f"Current validation accuracy: {val_accuracy:.4f}")
             model = early_stopper.best_model
@@ -146,6 +146,7 @@ def main(dataset='cocitation_cora',
     train_accuracy, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
     accuracy, predictions = test(model, X, G, labels, test_mask)
     print(f'Test Accuracy: {accuracy:.4f}, Training Accuracy: {train_accuracy:.4f}, Validation Accuracy: {val_accuracy:.4f}')
+    visualize_results(model, X, G, labels, test_mask, show_graphs=False)
     wandb.log({"Test Accuracy": accuracy, "Training Accuracy": train_accuracy, "Validation Accuracy": val_accuracy})
 
     # Finish the wandb run
@@ -188,13 +189,13 @@ if __name__ == '__main__':
          model='HCoGNN',
          train_percentage=0.6,
          activation_fun=nn.ReLU(),
-         action_net_depth=1,
+         action_net_depth=0,
          environment_net_depth=1,
-         action_net_hidden=[32],
-         environment_net_hidden=[64],
+         action_net_hidden=[16],
+         environment_net_hidden=[32],
          hidden=[64],
          num_layers=3,
-         tau=0.01,
+         tau=0.001,
          do_act=0,
          do_env=0,
          dropout=0.5,

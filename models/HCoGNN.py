@@ -35,6 +35,7 @@ class HCoGNN_node_classifier(nn.Module):
         self.action_net_receive = action_net_receive
         self.environment_net = environment_net
         self.tau = tau
+        self.save_action_history = False
         self.action_history = []
 
     def forward(self, x, G: Hypergraph):
@@ -55,7 +56,7 @@ class HCoGNN_node_classifier(nn.Module):
             receive_action = F.gumbel_softmax(p_i_receive, self.tau, hard=True)[:,0]
             action = torch.stack([receive_action, send_action], dim=1)
 
-            if not self.training:
+            if self.save_action_history:
                 self.action_history.append((3 - action[:, 0] * 2 - action[:, 1]).to(torch.int8))
 
             if i == 0:

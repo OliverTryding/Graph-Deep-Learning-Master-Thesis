@@ -47,7 +47,7 @@ class HCoGNN_node_classifier(nn.Module):
             # Determine the actions
             zero_pad = torch.zeros(x.shape[0], 1).to(x.device)
             p_i_send = self.action_net_send(x, G)
-            p_i_send = torch.cat([zero_pad, p_i_send], dim=1)
+            p_i_send = torch.cat([p_i_send, zero_pad], dim=1)
             p_i_receive = self.action_net_receive(x, G)
             p_i_receive = torch.cat([p_i_receive, zero_pad], dim=1)
 

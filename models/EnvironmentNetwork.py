@@ -17,7 +17,7 @@ class environment_network(nn.Module):
         for i in range(len(layer_dims)-1):
             self.layers.append(nn.Linear(layer_dims[i], layer_dims[i+1]))
             self.layers.append(activation)
-        self.lin_update = nn.Linear(num_features, num_features, bias=True)
+        #self.lin_update = nn.Linear(num_features, num_features, bias=True)
         self.dropout = nn.Dropout(dropout)
         self.aggregation = aggregation
 
@@ -41,6 +41,6 @@ class environment_network(nn.Module):
         # Aggregate the messages
         m_i = G.v2v(m_ji, self.aggregation)
         m_i = m_i * receive.view(-1, 1) # mask the messages
-        h_i = self.lin_update(x) + m_i
+        h_i = m_i #+ self.lin_update(x)
         h_i = self.activation(h_i)
         return h_i

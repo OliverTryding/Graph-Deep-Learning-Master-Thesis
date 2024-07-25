@@ -100,12 +100,14 @@ def main(dataset='cocitation_cora',
     num_encoded_features = X.shape[1]
 
     # Define the model
-    action_net = action_network(num_encoded_features, "mean", activation_fun, action_net_hidden, depth=action_net_depth, dropout=do_act).to(device)
+    action_net_send = action_network(num_encoded_features, "mean", activation_fun, action_net_hidden, depth=action_net_depth, dropout=do_act).to(device)
+    action_net_receive = action_network(num_encoded_features, "mean", activation_fun, action_net_hidden, depth=action_net_depth, dropout=do_act).to(device)
     environment_net = environment_network(num_encoded_features, "mean", activation_fun, environment_net_hidden, depth=environment_net_depth, dropout=do_env).to(device)
-    model = HCoGNN_node_classifier(num_encoded_features, num_classes, num_layers, activation_fun, action_net, environment_net, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm).to(device)
+    model = HCoGNN_node_classifier(num_encoded_features, num_classes, num_layers, activation_fun, action_net_send, action_net_receive, environment_net, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm).to(device)
 
     params = [{'params': model.classifier.parameters(), 'lr': classifier_lr, 'weight_decay': weight_decay}, 
-              {'params': model.action_net.parameters(), 'lr': action_net_lr, 'weight_decay': weight_decay}, 
+              {'params': model.action_net_send.parameters(), 'lr': action_net_lr, 'weight_decay': weight_decay}, 
+              {'params': model.action_net_receive.parameters(), 'lr': action_net_lr, 'weight_decay': weight_decay}, 
               {'params': model.environment_net.parameters(), 'lr': environment_net_lr, 'weight_decay': weight_decay}]
 
     # Adam optimizer
@@ -118,7 +120,7 @@ def main(dataset='cocitation_cora',
     edge_weight = (None,None)
 
     # Run the training
-    early_stopper = EarlyStopping(patience=200, mode='max', delta=-0.01, break_training=False)
+    early_stopper = EarlyStopping(patience=200, mode='max', delta=0.0, break_training=True)
     print('')
     print("Training...")
     for epoch in range(2000):
@@ -126,9 +128,11 @@ def main(dataset='cocitation_cora',
 
         _, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
         if early_stopper(model, val_accuracy):
-            # print("Early stopping")
+            print(f"Best validation accuracy: {early_stopper.best_score:.4f}")
+            print(f"Current validation accuracy: {val_accuracy:.4f}")
             model = early_stopper.best_model
             if early_stopper.break_training:
+                print("Early stopping")
                 break
 
         if epoch % 100 == 0:
@@ -180,15 +184,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(dataset='coauthorship_cora',
+    main(dataset='cora',
          model='HCoGNN',
-         train_percentage=0.5,
+         train_percentage=0.6,
          activation_fun=nn.ReLU(),
-         action_net_depth=0,
+         action_net_depth=1,
          environment_net_depth=1,
-         action_net_hidden=[],
-         environment_net_hidden=[512],
-         hidden=[256],
+         action_net_hidden=[32],
+         environment_net_hidden=[64],
+         hidden=[64],
          num_layers=3,
          tau=0.01,
          do_act=0,
@@ -197,7 +201,7 @@ if __name__ == '__main__':
          layerNorm=True,
          pos_enc=True,
          classifier_lr=0.01,
-         action_net_lr=0.01,
+         action_net_lr=0.001,
          environment_net_lr=0.0005,
          weight_decay=5e-5,
          seed=420)

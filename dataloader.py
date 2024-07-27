@@ -17,6 +17,29 @@ from dhg.data import Cooking200
 from dhg.data import WalmartTrips
 import dhg.datapipe as dd
 
+def train_mask_for_classes(labels, num_classes, train_percentage):
+    train_mask = torch.zeros_like(labels, dtype=torch.bool)
+    test_mask = torch.zeros_like(labels, dtype=torch.bool)
+    for i in range(num_classes):
+        idx = (labels == i).nonzero(as_tuple=True)[0]
+        perm = torch.randperm(len(idx))
+        idx = idx[perm]
+        num_train = int(train_percentage * len(idx))
+        train_mask[idx[:num_train]] = True
+        test_mask[idx[num_train:]] = True
+    return train_mask, test_mask
+
+def train_mask_for_classes_flat(labels, num_classes, train_num):
+    train_mask = torch.zeros_like(labels, dtype=torch.bool)
+    test_mask = torch.zeros_like(labels, dtype=torch.bool)
+    for i in range(num_classes):
+        idx = (labels == i).nonzero(as_tuple=True)[0]
+        perm = torch.randperm(len(idx))
+        idx = idx[perm]
+        train_mask[idx[:train_num]] = True
+        test_mask[idx[train_num:]] = True
+    return train_mask, test_mask
+
 def load_dataset(dataset_name: str):
     if dataset_name == 'cora':
         return Cora()
@@ -58,6 +81,11 @@ def load_data(dataset_name: str, train_percentage: float = 0.1, verbose: bool = 
     if verbose:
         print("Number of classes:", num_classes)
 
+    # Print the number of each class
+    class_counts = torch.bincount(labels)
+    if verbose:
+        print("Class counts:", class_counts)
+
     # Print the number of nodes
     num_nodes = dataset['num_vertices']
     if verbose:
@@ -89,29 +117,33 @@ def load_data(dataset_name: str, train_percentage: float = 0.1, verbose: bool = 
     if verbose:
         print("Labels:", dataset['labels'].shape)
 
-    try:
-        # Get the minimum train masks
-        min_train_mask = dataset['train_mask']
-    except:
-        # If the minimum train mask is not provided, set it to all zeros
-        min_train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    # try:
+    #     # Get the minimum train masks
+    #     min_train_mask = dataset['train_mask']
+    # except:
+    #     # If the minimum train mask is not provided, set it to all zeros
+    #     min_train_mask = torch.zeros(num_nodes, dtype=torch.bool)
 
-    # Compute new masks
-    num_train = int(train_percentage * num_nodes)
-    num_test = num_nodes - num_train
-    train_mask = torch.zeros(num_nodes, dtype=torch.bool)
-    test_mask = torch.zeros(num_nodes, dtype=torch.bool)
-    train_mask[:num_train] = True
-    test_mask[num_train:] = True
-    perm = torch.randperm(num_nodes)
-    train_mask = train_mask[perm]
-    test_mask = test_mask[perm]
+    # # Compute new masks
+    # num_train = int(train_percentage * num_nodes)
+    # num_test = num_nodes - num_train
+    # train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    # test_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    # train_mask[:num_train] = True
+    # test_mask[num_train:] = True
+    # perm = torch.randperm(num_nodes)
+    # train_mask = train_mask[perm]
+    # test_mask = test_mask[perm]
+    # val_mask = test_mask.clone()
+
+    # # Set the minimum train mask
+    # train_mask[min_train_mask] = True
+    # test_mask[min_train_mask] = False
+    # val_mask[min_train_mask] = False
+
+    # train_mask, test_mask = train_mask_for_classes(labels, num_classes, train_percentage)
+    train_mask, test_mask = train_mask_for_classes_flat(labels, num_classes, int(train_percentage * min(class_counts)))
     val_mask = test_mask.clone()
-
-    # Set the minimum train mask
-    train_mask[min_train_mask] = True
-    test_mask[min_train_mask] = False
-    val_mask[min_train_mask] = False
 
     # Print the train mask
     if verbose:

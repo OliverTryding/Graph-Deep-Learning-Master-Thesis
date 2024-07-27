@@ -17,7 +17,6 @@ class HCoGNN_node_classifier(nn.Module):
 
         self.layer_norm = nn.LayerNorm(num_features) if layerNorm else nn.Identity()
         self.skip_connection = skip_connection
-        self.skip_connections = []
 
         self.linear = nn.Linear(num_features, num_features)
 
@@ -40,7 +39,19 @@ class HCoGNN_node_classifier(nn.Module):
         self.save_action_history = False
         self.action_history = []
 
-    def forward(self, x, G: Hypergraph):
+    def compute_edge_weights(self, G, send_action, receive_action):
+        v2e_weights = torch.zeros_like(G.v2e_weight).unsqueeze(0).to(send_action.device)
+        e2v_weights = torch.zeros_like(G.e2v_weight).unsqueeze(0).to(send_action.device)
+        idx = 0
+        for edge in G.e[0]:
+            edge_idxs = torch.arange(idx, idx + len(edge)).to(send_action.device)
+            v2e_weights[0, edge_idxs] = send_action.unsqueeze(0)[0,edge]
+            e2v_weights[0, edge_idxs] = receive_action.unsqueeze(0)[0,edge]
+            idx += len(edge)
+
+        return v2e_weights[0], e2v_weights[0]
+
+    def forward(self, x, G: Hypergraph, delay: bool = False):
         # Pass the input through the linear encoding layer
         x = self.linear(x)
 
@@ -66,10 +77,21 @@ class HCoGNN_node_classifier(nn.Module):
 
             if i == 0:
                 initial_action = action
+                send_action = torch.ones(x.shape[0]).to(x.device)
+                receive_action = torch.ones(x.shape[0]).to(x.device)
                 action = torch.ones(x.shape[0], 2).to(x.device)
 
             # Update the node features
-            x = environment_net(x, action, G)
+            if delay:
+                out = environment_net(x, G)
+            else:
+                out = environment_net(x * send_action.view(-1, 1) , G) * receive_action.view(-1, 1)
+
+            # Add skip connection
+            if self.skip_connection:
+                x = out + x
+            else:
+                x = out
 
         # Pass the output through the classifier
         for layer in self.classifier:

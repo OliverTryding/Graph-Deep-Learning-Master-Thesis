@@ -102,13 +102,16 @@ def main(dataset='cocitation_cora',
     # Define the model
     action_net_send = action_network(num_encoded_features, "mean", activation_fun, action_net_hidden, depth=action_net_depth, dropout=do_act).to(device)
     action_net_receive = action_network(num_encoded_features, "mean", activation_fun, action_net_hidden, depth=action_net_depth, dropout=do_act).to(device)
-    environment_net = environment_network(num_encoded_features, "mean", activation_fun, environment_net_hidden, depth=environment_net_depth, dropout=do_env).to(device)
-    model = HCoGNN_node_classifier(num_encoded_features, num_classes, num_layers, activation_fun, action_net_send, action_net_receive, environment_net, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm).to(device)
+    environment_nets = []
+    for _ in range(num_layers):
+        environment_net = environment_network(num_encoded_features, "mean", activation_fun, environment_net_hidden, depth=environment_net_depth, dropout=do_env).to(device)
+        environment_nets.append(environment_net)
+    model = HCoGNN_node_classifier(num_encoded_features, num_classes, activation_fun, action_net_send, action_net_receive, environment_nets, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm).to(device)
 
     params = [{'params': model.classifier.parameters(), 'lr': classifier_lr, 'weight_decay': weight_decay}, 
               {'params': model.action_net_send.parameters(), 'lr': action_net_lr, 'weight_decay': weight_decay}, 
               {'params': model.action_net_receive.parameters(), 'lr': action_net_lr, 'weight_decay': weight_decay}, 
-              {'params': model.environment_net.parameters(), 'lr': environment_net_lr, 'weight_decay': weight_decay}]
+              {'params': model.environment_networks.parameters(), 'lr': environment_net_lr, 'weight_decay': weight_decay}]
 
     # Adam optimizer
     optimizer = torch.optim.Adam(params)
@@ -128,12 +131,14 @@ def main(dataset='cocitation_cora',
 
         #_, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
         if early_stopper(model, loss):
-            print(f"Best validation accuracy: {early_stopper.best_score:.4f}")
-            print(f"Current validation accuracy: {val_accuracy:.4f}")
+            # print(f"Best validation accuracy: {early_stopper.best_score:.4f}")
+            # print(f"Current validation accuracy: {val_accuracy:.4f}")
             model = early_stopper.best_model
             if early_stopper.break_training:
                 print("Early stopping")
                 break
+            else:
+                early_stopper.stop = False
 
         if epoch % 100 == 0:
             train_accuracy, val_accuracy = validate(model, X, G, labels, train_mask, val_mask)
@@ -195,14 +200,14 @@ if __name__ == '__main__':
          environment_net_hidden=[32],
          hidden=[64],
          num_layers=3,
-         tau=0.001,
+         tau=0.01,
          do_act=0,
          do_env=0,
          dropout=0.5,
          layerNorm=True,
          pos_enc=True,
-         classifier_lr=0.01,
-         action_net_lr=0.001,
+         classifier_lr=0.001,
+         action_net_lr=0.0001,
          environment_net_lr=0.0005,
-         weight_decay=5e-5,
-         seed=420)
+         weight_decay=1e-5,
+         seed=255)

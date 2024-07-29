@@ -106,7 +106,7 @@ def main(dataset='cocitation_cora',
     for _ in range(num_layers):
         environment_net = environment_network(num_encoded_features, "mean", activation_fun, environment_net_hidden, depth=environment_net_depth, dropout=do_env).to(device)
         environment_nets.append(environment_net)
-    model = HCoGNN_node_classifier(num_encoded_features, num_classes, activation_fun, action_net_send, action_net_receive, environment_nets, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm).to(device)
+    model = HCoGNN_node_classifier(num_encoded_features, num_classes, activation_fun, action_net_send, action_net_receive, environment_nets, hidden, tau=tau, dropout=dropout, layerNorm=layerNorm, skip_connection=True).to(device)
 
     params = [{'params': model.classifier.parameters(), 'lr': classifier_lr, 'weight_decay': weight_decay}, 
               {'params': model.action_net_send.parameters(), 'lr': action_net_lr, 'weight_decay': weight_decay}, 
@@ -193,12 +193,12 @@ if __name__ == '__main__':
     main(dataset='cora',
          model='HCoGNN',
          train_percentage=0.6,
-         activation_fun=nn.ReLU(),
-         action_net_depth=0,
+         activation_fun=nn.GELU(),
+         action_net_depth=1,
          environment_net_depth=1,
          action_net_hidden=[16],
          environment_net_hidden=[32],
-         hidden=[64],
+         hidden=[256],
          num_layers=3,
          tau=0.01,
          do_act=0,
@@ -206,8 +206,8 @@ if __name__ == '__main__':
          dropout=0.5,
          layerNorm=True,
          pos_enc=True,
-         classifier_lr=0.001,
-         action_net_lr=0.0001,
-         environment_net_lr=0.0005,
+         classifier_lr=0.01,
+         action_net_lr=0.001,
+         environment_net_lr=0.001,
          weight_decay=1e-5,
          seed=255)

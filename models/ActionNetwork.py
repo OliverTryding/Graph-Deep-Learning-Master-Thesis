@@ -47,7 +47,7 @@ class action_network(torch.nn.Module):
 
         # Aggregate the messages
         m_i = G.v2v(m_ji, self.aggregation)
-        h_i = self.lin_update(x) + m_i
+        h_i = m_i + self.lin_update(x)
         h_i = self.activation(h_i)
 
         return h_i

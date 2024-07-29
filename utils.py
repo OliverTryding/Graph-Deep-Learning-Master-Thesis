@@ -73,16 +73,21 @@ def initial_action_loss(initial_action):
     return torch.nn.MSELoss()(initial_action, torch.ones_like(initial_action))
 
 # Training function
-def train(model, optimizer, X, G, labels, train_mask):
+def train(model, optimizer, X, G, labels, train_mask: torch.tensor = None, delay: bool=False):
     model.train()
+    if train_mask is None:
+        train_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     if optimizer.__class__.__name__ == 'LBFGS':
         optimizer.step(closure=lambda: closure(model, optimizer, X, G, labels, train_mask))
         return bfgs_loss
     else:
         if model.__class__.__name__ == 'HCoGNN_node_classifier':
             optimizer.zero_grad()
-            out, initial_action = model(X, G)
-            loss = F.cross_entropy(out[train_mask], labels[train_mask]) #+ torch.nn.MSELoss()(initial_action, torch.ones_like(initial_action))
+            out, initial_action = model(X, G, delay=delay)
+            if delay:
+                loss = F.cross_entropy(out[train_mask], labels[train_mask]) + torch.nn.MSELoss()(initial_action, torch.ones_like(initial_action))
+            else:
+                loss = F.cross_entropy(out[train_mask], labels[train_mask])
             loss.backward()
             optimizer.step()
             return loss.item()
@@ -95,17 +100,12 @@ def train(model, optimizer, X, G, labels, train_mask):
             optimizer.step()
             return loss.item()
 
-def validate(model, X, G, labels, train_mask, val_mask):
+def validate(model, X, G, labels, val_mask: torch.tensor = None, delay: bool=False):
     model.eval()
+    if val_mask is None:
+        val_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     with torch.no_grad():
-        logits = model(X, G) # Log probabilities
-
-        # Train accuracy
-        train_logits = logits[train_mask] # Log probabilities of train nodes
-        train_labels = labels[train_mask] # True labels of train nodes
-        train_pred = train_logits.max(1)[1] # Predicted labels
-        train_correct = train_pred.eq(train_labels).sum().item() # Number of correctly classified nodes
-        train_accuracy = train_correct / train_mask.sum().item() # Accuracy
+        logits = model(X, G, delay=delay) # Log probabilities
 
         # Validation accuracy
         val_logits = logits[val_mask] # Log probabilities of validation nodes
@@ -114,11 +114,13 @@ def validate(model, X, G, labels, train_mask, val_mask):
         val_correct = val_pred.eq(val_labels).sum().item() # Number of correctly classified nodes
         val_accuracy = val_correct / val_mask.sum().item() # Accuracy
             
-    return train_accuracy, val_accuracy
+    return val_accuracy
 
 # Testing function
-def test(model, X, G, labels, test_mask):
+def test(model, X, G, labels, test_mask: torch.tensor = None):
     model.eval()
+    if test_mask is None:
+        test_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     with torch.no_grad():
         logits = model(X, G)
         test_logits = logits[test_mask] # Log probabilities of test nodes

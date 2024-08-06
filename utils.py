@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import torch
 import torch.nn.functional as F
 import copy
@@ -73,86 +74,109 @@ def initial_action_loss(initial_action):
     return torch.nn.MSELoss()(initial_action, torch.ones_like(initial_action))
 
 # Training function
-def train(model, optimizer, X, G, labels, train_mask: torch.tensor = None, delay: bool=False):
+def train(model, optimizer, loss_f, X, G, labels, train_mask: torch.tensor = None, delay: bool=False):
     model.train()
-    if train_mask is None:
-        train_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     if optimizer.__class__.__name__ == 'LBFGS':
         optimizer.step(closure=lambda: closure(model, optimizer, X, G, labels, train_mask))
         return bfgs_loss
     else:
+        if train_mask is None:
+            train_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
         if model.__class__.__name__ == 'HCoGNN_node_classifier':
             optimizer.zero_grad()
             out, initial_action = model(X, G, delay=delay)
             if delay:
-                loss = F.cross_entropy(out[train_mask], labels[train_mask]) + torch.nn.MSELoss()(initial_action, torch.ones_like(initial_action))
+                train_out = out[train_mask]
+                train_labels = labels if train_mask.shape[0] == 1 else labels[train_mask]
+                loss = loss_f(train_out, train_labels) + torch.nn.MSELoss()(initial_action, torch.ones_like(initial_action))
             else:
-                loss = F.cross_entropy(out[train_mask], labels[train_mask])
+                train_out = out[train_mask]
+                train_labels = labels if train_mask.shape[0] == 1 else labels[train_mask]
+                loss = loss_f(train_out, train_labels)
             loss.backward()
             optimizer.step()
             return loss.item()
         else:
             optimizer.zero_grad()
             out = model(X, G)
-            #loss = F.nll_loss(out[train_mask], labels[train_mask])
-            loss = F.cross_entropy(out[train_mask], labels[train_mask])
+            train_out = out[train_mask]
+            train_labels = labels if train_mask.shape[0] == 1 else labels[train_mask]
+            loss = loss_f(train_out, train_labels)
             loss.backward()
             optimizer.step()
             return loss.item()
 
-def validate(model, X, G, labels, val_mask: torch.tensor = None, delay: bool=False):
+def validate(model, X, G, labels, categorical: bool = True, val_mask: torch.tensor = None, delay: bool=False):
     model.eval()
-    if val_mask is None:
-        val_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     with torch.no_grad():
         logits = model(X, G, delay=delay) # Log probabilities
 
         # Validation accuracy
+        if val_mask is None:
+            val_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
         val_logits = logits[val_mask] # Log probabilities of validation nodes
-        val_labels = labels[val_mask] # True labels of validation nodes
-        val_pred = val_logits.max(1)[1] # Predicted labels
-        val_correct = val_pred.eq(val_labels).sum().item() # Number of correctly classified nodes
-        val_accuracy = val_correct / val_mask.sum().item() # Accuracy
+        val_labels = labels if val_mask.shape[0] == 1 else labels[val_mask]  # True labels of validation nodes
+
+        if categorical:
+            val_pred = val_logits.max(1)[1] # Predicted labels
+            val_correct = val_pred.eq(val_labels).sum().item() # Number of correctly classified nodes
+            val_accuracy = val_correct / val_mask.sum().item() # Accuracy
+        else:
+            val_accuracy = torch.nn.MSELoss()(val_logits, val_labels)
             
     return val_accuracy
 
 # Testing function
-def test(model, X, G, labels, test_mask: torch.tensor = None):
+def test(model, X, G, labels, categorical: bool = True, test_mask: torch.tensor = None):
     model.eval()
+    with torch.no_grad():
+        logits = model(X, G)
+
+        # Test accuracy
+        if test_mask is None:
+            test_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
+        test_logits = logits[test_mask] # Log probabilities of test nodes
+        test_labels = labels if test_mask.shape[0] == 1 else labels[test_mask] # True labels of test nodes
+
+        if categorical:
+            pred = test_logits.max(1)[1] # Predicted labels
+            correct = pred.eq(test_labels).sum().item() # Number of correctly classified nodes
+            accuracy = correct / test_mask.sum().item() # Accuracy
+        else:
+            accuracy = torch.nn.MSELoss()(test_logits, test_labels)
+            pred = test_logits
+                        
+    return accuracy, pred
+
+def visualize_results(model, X, G, labels, categorical: bool = True, test_mask: torch.tensor = None, show_graphs=False):
+    model.eval()
+    model.action_history = []
+    model.save_action_history = True
     if test_mask is None:
         test_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     with torch.no_grad():
         logits = model(X, G)
         test_logits = logits[test_mask] # Log probabilities of test nodes
         test_labels = labels[test_mask] # True labels of test nodes
-        pred = test_logits.max(1)[1] # Predicted labels
-        correct = pred.eq(test_labels).sum().item() # Number of correctly classified nodes
-        accuracy = correct / test_mask.sum().item() # Accuracy
-                        
-    return accuracy, pred
 
-def visualize_results(model, X, G, labels, test_mask, show_graphs=False):
-    model.eval()
-    model.save_action_history = True
-    with torch.no_grad():
-        logits = model(X, G)
-        test_logits = logits[test_mask] # Log probabilities of test nodes
-        test_labels = labels[test_mask] # True labels of test nodes
-        pred = test_logits.max(1)[1] # Predicted labels
+        if categorical:
+            pred = test_logits.max(1)[1] # Predicted labels
 
-        cm = confusion_matrix(test_labels.cpu(), pred.cpu())
+            cm = confusion_matrix(test_labels.cpu(), pred.cpu())
 
-        # Normalize confusion matrix
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            # Normalize confusion matrix
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
-        fig, ax = plt.subplots(1, 2, figsize=(20,10))
+            fig, ax = plt.subplots(1, 2, figsize=(20,10))
 
-        # Plot confusion matrix
-        im = ax[0].matshow(cm, cmap=plt.cm.Blues)
-        plt.colorbar(im, ax=ax[0])
-        ax[0].set_title('Confusion matrix')
-        ax[0].set_ylabel('True label')
-        ax[0].set_xlabel('Predicted label')
+            # Plot confusion matrix
+            im = ax[0].matshow(cm, cmap=plt.cm.Blues)
+            plt.colorbar(im, ax=ax[0])
+            ax[0].set_title('Confusion matrix')
+            ax[0].set_ylabel('True label')
+            ax[0].set_xlabel('Predicted label')
+        else:
+            pred = test_logits
 
         # Plot action history
         if hasattr(model, 'action_history'):
@@ -210,9 +234,55 @@ def visualize_results(model, X, G, labels, test_mask, show_graphs=False):
                     vertex_colors = [colors[a] for a in actions]
                     G.draw(v_label=v_index, v_color=vertex_colors, e_color='black')
 
-        plt.show()
+        with PdfPages('output.pdf') as pdf:
+            pdf.savefig()  # saves the current figure
+            plt.close()  # close the figure
 
     model.save_action_history = False
+
+def visualize_ms(model, X, G, labels, ms):
+    model.eval()
+    model.action_history = []
+    model.save_action_history = True
+    with torch.no_grad():
+        num_nodes = G.num_v
+        dim = ms.board_dim
+        logits = model(X, G)
+
+        pred = logits.max(1)[1] # Predicted labels
+
+        num_layers = model.num_iterations
+
+        fig_dim = max(dim // 10, 10)
+        fig, axes = plt.subplots(num_layers+1, 1, figsize=(fig_dim, num_layers*fig_dim+fig_dim))
+
+        # # First figure is normal
+        # ms.draw(ax=axes[0])
+        # axes[0].set_title('Initial board')
+
+        # Plot correct and incorrect nodes
+        accuracy_mask = [1 if p == t else 0 for p, t in zip(pred, labels)] # 1 if correct, 0 if incorrect for each node
+        accuracy_colors = ['green' if t else 'red' for _, t in enumerate(accuracy_mask)]
+        ms.draw(accuracy_colors, ax=axes[0])
+        axes[0].set_title('Accuracy')
+
+        # Plot action history
+        if hasattr(model, 'action_history'):
+            print(f"Action history: {len(model.action_history)} layers")
+            for layer in range(model.num_iterations):
+                actions = model.action_history[layer].cpu()
+
+                # Convert list to numpy array
+                actions_array = np.array(actions)
+                colors = ['blue', 'pink', 'orange', 'red'] # Standard, Listen, Broadcast, Isolate
+                action_colors = [colors[a] for a in actions_array]
+
+                ms.draw(action_colors, ax=axes[layer+1])
+                axes[layer+1].set_title(f'Layer {layer+1}')
+
+        with PdfPages('ms_actions.pdf') as pdf:
+            pdf.savefig()
+            plt.close()
 
 class EarlyStopping:
     def __init__(self, patience=5, mode='min', delta=0.0, break_training=False):
@@ -226,9 +296,9 @@ class EarlyStopping:
         self.break_training = break_training
 
         if self.mode == 'min':
-            self.best_score = np.Inf
+            self.best_score = np.inf
         else:
-            self.best_score = -np.Inf
+            self.best_score = -np.inf
 
     def __call__(self, model, score):
         if self.mode == 'min':

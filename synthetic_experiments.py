@@ -119,9 +119,9 @@ else:
         G, labels, features = data
         features = torch.tensor(features, dtype=torch.float32).to(device)
         if idx in train_mask:
-            labels = torch.tensor(labels, dtype=torch.float32).to(device)
+            labels = torch.tensor(labels, dtype=torch.float32).to(device)#[:,0]
         else:
-            labels = torch.tensor(labels, dtype=torch.float32).to(device)[:,0]
+            labels = torch.tensor(labels, dtype=torch.float32).to(device)[:,1]
         G.to(device)
         dataset[idx] = (G, labels, features)
     num_encoded_features = feature_dim
@@ -129,17 +129,17 @@ else:
 # Define models
 print('Defining the models...')
 
-action_net_send = action_network(num_encoded_features, "mean", nn.GELU(), [4], depth=0, dropout=0).to(device)
-action_net_recieve = action_network(num_encoded_features, "mean", nn.GELU(), [4], depth=0, dropout=0).to(device)
+action_net_send = action_network(num_encoded_features, "sum", nn.GELU(), [4], depth=1, dropout=0).to(device)
+action_net_recieve = action_network(num_encoded_features, "sum", nn.GELU(), [4], depth=1, dropout=0).to(device)
 #action_net_send = HGNN(num_encoded_features, 64, 1, True).to(device)
 #action_net_recieve = HGNN(num_encoded_features, 64, 1, True).to(device)
 #environment_net = environment_network(num_encoded_features, "mean", nn.ReLU(), [128], depth=1, dropout=0).to(device)
 environment_nets = []
 #environment_net = environment_network(num_encoded_features, "mean", nn.GELU(), [16], depth=1, dropout=0).to(device)
 for _ in range(2):
-    environment_net = environment_network(num_encoded_features, "mean", nn.GELU(), [16], depth=1, dropout=0).to(device)
+    environment_net = environment_network(num_encoded_features, "sum", nn.GELU(), [], depth=1, dropout=0).to(device)
     environment_nets.append(environment_net)
-model = HCoGNN_node_classifier(num_encoded_features, num_classes, nn.GELU(), action_net_send, action_net_recieve, environment_nets, [16], tau=0.001, dropout=0.5, layerNorm=False, skip_connection=False).to(device)
+model = HCoGNN_node_classifier(num_encoded_features, num_classes, nn.GELU(), action_net_send, action_net_recieve, environment_nets, [16], tau=0.001, dropout=0, layerNorm=False, skip_connection=True).to(device)
 
 params = [{'params': model.classifier.parameters(), 'lr': 0.01, 'weight_decay': 1e-5}, 
           {'params': model.action_net_send.parameters(), 'lr': 0.001, 'weight_decay': 1e-5}, 
@@ -150,11 +150,12 @@ params = [{'params': model.classifier.parameters(), 'lr': 0.01, 'weight_decay': 
 optimizer = torch.optim.Adam(params)
 
 # loss function
+#loss_f = nn.BCEWithLogitsLoss()
 loss_f = nn.CrossEntropyLoss()
 #loss_f = nn.MSELoss()
 
 # Run the training
-early_stopper = EarlyStopping(patience=200, mode='min', delta=0, break_training=True)
+early_stopper = EarlyStopping(patience=100, mode='min', delta=0, break_training=True)
 delay = False
 delay_patience = 1
 print("Training...")
@@ -170,7 +171,7 @@ for epoch in range(1001):
             avg_loss += loss / len(train_mask)
             if idx == 0:
                 delay_patience = delay_patience - 1
-                if delay_patience == 0:
+                if delay_patience <= 0 and delay:
                     delay = False
                     print("Delay is off")
                 if not delay:
@@ -179,6 +180,7 @@ for epoch in range(1001):
                         model = early_stopper.best_model
                         if early_stopper.break_training:
                             print("Early stopping")
+                            print(f"Best model at epoch {epoch} with score {early_stopper.best_score}")
                             break
     else:
         if epoch % 100 == 0:
@@ -189,7 +191,7 @@ for epoch in range(1001):
                     G, labels, X = data
                     avg_val_accuracy += validate(model, X, G, labels, categorical=True, val_mask=full_mask, delay=delay)
 
-            val_accuracy = avg_val_accuracy / len(full_mask)
+            val_accuracy = avg_val_accuracy / len(val_mask)
             print(f'Epoch {epoch+1}, Loss: {avg_loss:.4f}')
             print(f'Validation Accuracy: {val_accuracy:.4f}')
         continue

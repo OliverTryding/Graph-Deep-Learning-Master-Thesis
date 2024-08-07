@@ -85,6 +85,12 @@ def train(model, optimizer, loss_f, X, G, labels, train_mask: torch.tensor = Non
         if model.__class__.__name__ == 'HCoGNN_node_classifier':
             optimizer.zero_grad()
             out, initial_action = model(X, G, delay=delay)
+
+            if len(out.shape) == 1:
+                out = out.unsqueeze(1)
+            if len(labels.shape) == 1:
+                labels = labels.unsqueeze(1)
+
             if delay:
                 train_out = out[train_mask]
                 train_labels = labels if train_mask.shape[0] == 1 else labels[train_mask]
@@ -130,7 +136,7 @@ def validate(model, X, G, labels, categorical: bool = True, val_mask: torch.tens
 def test(model, X, G, labels, categorical: bool = True, test_mask: torch.tensor = None):
     model.eval()
     with torch.no_grad():
-        logits = model(X, G)
+        logits = model(X, G) # Log probabilities
 
         # Test accuracy
         if test_mask is None:
@@ -155,7 +161,8 @@ def visualize_results(model, X, G, labels, categorical: bool = True, test_mask: 
     if test_mask is None:
         test_mask = torch.ones(G.num_v, dtype=torch.bool).to(X.device)
     with torch.no_grad():
-        logits = model(X, G)
+        logits = model(X, G, full_print=False)
+        print(f"Logits: {logits}")
         test_logits = logits[test_mask] # Log probabilities of test nodes
         test_labels = labels[test_mask] # True labels of test nodes
 
@@ -288,7 +295,7 @@ class EarlyStopping:
     def __init__(self, patience=5, mode='min', delta=0.0, break_training=False):
         self.patience = patience
         self.mode = mode
-        self.delta = delta
+        self.delta = float(delta)
         self.counter = 0
         self.best_score = None
         self.stop = False
@@ -296,27 +303,29 @@ class EarlyStopping:
         self.break_training = break_training
 
         if self.mode == 'min':
-            self.best_score = np.inf
+            self.best_score = float('inf')
         else:
-            self.best_score = -np.inf
+            self.best_score = -float('inf')
 
     def __call__(self, model, score):
         if self.mode == 'min':
-            if score < self.best_score:
-                self.best_score = score
-                self.best_model = copy.deepcopy(model)
             if score < self.best_score + self.delta:
                 self.counter = 0
             else:
                 self.counter += 1
-        else:
-            if score > self.best_score:
+            
+            if score < self.best_score:
                 self.best_score = score
                 self.best_model = copy.deepcopy(model)
+        else:
             if score > self.best_score + self.delta:
                 self.counter = 0
             else:
                 self.counter += 1
+
+            if score > self.best_score:
+                self.best_score = score
+                self.best_model = copy.deepcopy(model)
 
         if self.counter >= self.patience:
             self.stop = True
